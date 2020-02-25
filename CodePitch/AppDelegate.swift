@@ -41,16 +41,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var currentIndex = 0
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        let _ = shell("git reset HEAD --hard")
-        let _ = shell("git clean -d -f")
-        let _ = shell("git checkout master")
+        master()
 
         for line in shell(#"git log --format="%h %s""#).reversed().dropFirst() {
             let components = line.split(separator: " ", maxSplits: 1)
             let (sha1, title) = (components[0], components[1])
             commits.append(Commit(title: String(title), sha1: String(sha1)))
         }
-        currentIndex = commits.count - 1
         
         statusBarPrev.button?.title = "◀︎"
         statusBarPrev.button?.action = #selector(prev)
@@ -79,18 +76,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(menuItem)
         }
         self.menu.addItem(NSMenuItem.separator())
+        self.menu.addItem(NSMenuItem.init(title: "master", action: #selector(self.master), keyEquivalent: ""))
+        self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(NSMenuItem.init(title: "Quit", action: #selector(self.quit), keyEquivalent: ""))
 
-        statusBarItem.button?.title = commits[currentIndex].title
+        if currentIndex == -1 {
+            statusBarItem.button?.title = "🤟"
+        }
+        else {
+            statusBarItem.button?.title = commits[currentIndex].title
+        }
     }
     
     @objc
     func goToMenuItem(sender: NSMenuItem) {
-        let commit = sender.representedObject as! Commit
-        goTo(commit)
+        currentIndex = sender.tag
+        goToCurrentCommit()
     }
     
-    func goTo(_ commit: Commit) {
+    func goToCurrentCommit() {
+        let commit = commits[currentIndex]
         // NSWorkspace.shared.open(URL(string: pr.url)!)
         let _ = shell("git reset HEAD --hard")
         let _ = shell("git clean -d -f")
@@ -103,7 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func prev() {
         if currentIndex > 0 {
             currentIndex -= 1
-            goTo(commits[currentIndex])
+            goToCurrentCommit()
         }
     }
 
@@ -111,8 +116,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func next() {
         if currentIndex < (commits.count - 1) {
             currentIndex += 1
-            goTo(commits[currentIndex])
+            goToCurrentCommit()
         }
+    }
+    
+    @objc
+    func master() {
+        let _ = shell("git reset HEAD --hard")
+        let _ = shell("git clean -d -f")
+        let _ = shell("git checkout master")
+        currentIndex = -1
+        update()
     }
 
     @objc
